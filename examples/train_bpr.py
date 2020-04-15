@@ -1,13 +1,17 @@
 import torch
 import argparse
 import os
->import pickle
+import pickle
 import datetime
 from torch import nn
 import torch.nn.functional as F
 from binding_prediction.models import PosBindingModel
 from binding_prediction.dataset import PosDrugProteinDataset, collate_fn
 from binding_prediction import pretrained_language_models
+from binding_prediction.model_utils import run_bpr_on_batch
+from binding_prediction.evaluate import pairwise_auc
+from binding_prediction.summary import initialize_logging
+
 from torch import optim
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
@@ -84,7 +88,7 @@ def main():
     in_channels = in_channels_seq + in_channels_nodes
     out_channels = 10
     model = PosBindingModel(
-        out_channels, out_channels,
+        out_channels, 1,
         in_channels_graph=in_channels_nodes, in_channels_prot=in_channels_seq,
         merge_channels_graph=args.merge_molecule_channels,
         merge_channels_prot=args.merge_prot_channels,
@@ -109,7 +113,7 @@ def main():
         total_train_loss = 0
         for i, batch in enumerate(train_dataloader):
             optimizer.zero_grad()
-            loss = run_model_on_batch(model, batch, device=device).squeeze(-1)
+            loss = run_bpr_on_batch(model, batch, device=device).squeeze(-1)
             # loss = calculate_loss(output, batch)
             loss.backward()
             optimizer.step()
@@ -117,19 +121,22 @@ def main():
                 l = loss.item()
                 print("Batch {}/{}.  Batch loss: {}".format(i, len(train_dataloader), l))
                 torch.cuda.empty_cache()
+                total_train_loss += l
 
         model.eval()
         total_valid_loss = 0
         with torch.no_grad():
             for i, batch in enumerate(valid_dataloader):
-                loss = run_model_on_batch(model, batch, device=device).squeeze(-1)
+                loss = run_bpr_on_batch(model, batch, device=device).squeeze(-1)
                 total_valid_loss += loss.item()
-
+        auc = pairwise_auc(model, valid_dataloader, 'BPR', n, writer)
         avg_train_loss = total_train_loss / len(train_dataset)
         avg_valid_loss = total_valid_loss / len(valid_dataset)
-        print("Epoch {} Complete. Train loss: {}.  Valid loss: {}.".format(n, avg_train_loss, avg_valid_loss))
-        writer.add_scalar('training_loss', avg_train_loss, n)
+        print("Epoch {} Complete. Train loss: {}.  Valid loss: {}. AUC: {}".format(
+            n, avg_train_loss, avg_valid_loss, auc))
+
         writer.add_scalar('validation_loss', avg_valid_loss, n)
+        writer.add_scalar('training_loss', avg_train_loss, n)
 
         torch.save(model.state_dict(), args.dir + '/model_current.pt')
         if avg_valid_loss < best_valid_loss:

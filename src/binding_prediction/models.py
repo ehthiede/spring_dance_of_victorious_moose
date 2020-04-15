@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import pad_sequence
+import torch.nn.functional as F
 from .layers import GraphAndConv, MergeSnE1, RankingLayer
 from dgl.nn.pytorch.conv import GraphConv
 from binding_prediction.dataset import build_dgl_graph_batch
@@ -45,6 +46,7 @@ class BindingModel(torch.nn.Module):
             raise ValueError('Language model is not initialized!')
         prot_embeddings = [self.lm(p_i) for p_i in prot_sequences]
         embeddings = pad_sequence(prot_embeddings, batch_first=True, padding_value=0)
+
         x_node = self.in_graph(x)
         x_prot = self.in_prot(embeddings)
         y = self.merge_graph_w_sequences(x_node, x_prot)
@@ -75,12 +77,16 @@ class PosBindingModel(nn.Module):
         self.bm = BindingModel(**kwargs)
         self.ranking = RankingLayer(input_size, emb_dim)
 
-    def forward(self, pos_adj, pos_x,
-                neg_adj, neg_x,
-                prot_sequences):
+    def predict(self, pos_adj, pos_x, neg_adj, neg_x, prot_sequences):
         pos_out = self.bm.forward(pos_adj, pos_x, prot_sequences)
         neg_out = self.bm.forward(neg_adj, neg_x, prot_sequences)
-        return self.ranking.forward(pos_out, neg_out)
+        score = self.ranking.forward(pos_out, neg_out)
+        return score
+
+    def forward(self, *args, **kwargs):
+        score = self.predict(*args, **kwargs)
+        loss = sum(sum(F.logsigmoid(score)))
+        return -1 * loss
 
     def load_language_model(self, cls, path, device='cuda'):
         """

@@ -72,6 +72,36 @@ class TestBindingModel(object):
         output_from_perm = model(adj_mats_perm, feature_perm, sample_sequences)
         assert(torch.norm(output - output_from_perm) < 1e-3)
 
+class TestPosBindingModel(object):
+    def test_forward(self):
+        # torch.Size([20, 50, 86]) torch.Size([20, 50, 50])
+        # torch.Size([20, 31, 86]) torch.Size([20, 31, 31])
+        # 20
+        torch.manual_seed(0)
+        pos_adj = torch.rand((20, 50, 86))
+        pos_x = torch.rand((20, 50, 50))
+        neg_adj = torch.rand((20, 31, 86))
+        neg_x = torch.rand((20, 31, 31))
+        lengths = [477, 777, 80, 232, 406, 433, 1291,
+                   533, 858, 724, 360, 348, 298, 816,
+                   719, 417, 680, 527, 506, 542]
+        prots = list(map(lambda x: x*'A', lengths))
+        out_channels=10
+        in_channels_nodes = 20
+        in_channels_seq = 512
+        merge_molecule_channels = 10
+        merge_prot_channels = 10
+        hidden_channels = 10
+        model = PosBindingModel(
+            out_channels, out_channels,
+            in_channels_graph=in_channels_nodes, in_channels_prot=in_channels_seq,
+            merge_channels_graph=args.merge_molecule_channels,
+            merge_channels_prot=args.merge_prot_channels,
+            hidden_channel_list=args.hidden_channels,
+            out_channels=out_channels, final_channels=out_channels)
+        out = model(pos_adj, pos_x, neg_adj, neg_x, prots)
+        self.assertTrue(0)
+
 class TestAttentionModel(object):
     def test_permutation_invariance(self, sample_sequences):
         batch_size, node_dim, max_nodes = 3, 5, 4

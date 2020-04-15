@@ -5,6 +5,7 @@ from binding_prediction.model_utils import (run_model_on_batch,
                                             run_model_on_mixed_batch, get_targets)
 from sklearn.metrics import roc_curve, roc_auc_score
 import matplotlib.pyplot as plt
+from itertools import product
 
 
 # Global evaluation metrics
@@ -88,15 +89,16 @@ def pairwise_auc(binding_model,
     """
     with torch.no_grad():
         rank_counts = 0
+        total = 0
         for j, batch in enumerate(dataloader):
             res = run_model_on_mixed_batch(binding_model, batch)
-            pn, pa, nn, na, s = res
-            pv = binding_model.forward(pa, pn, s)
-            nv = binding_model.forward(na, nn, s)
-            score = torch.sum(pv > pn).item()
+            pa, pn, na, nn, s = res
+            v = binding_model.predict(pa, pn, na, nn, s)
+            score = torch.sum(v > 0).item()
             rank_counts += score
+            total += len(v)
 
-        tpr = rank_counts / j
-        writer.add_scalar(f'{name}/pairwise_TPR', tpr, it)
+        tpr = rank_counts / total
+        writer.add_scalar('pairwise_auc', tpr, it)
 
     return tpr

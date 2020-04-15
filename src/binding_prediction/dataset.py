@@ -189,10 +189,8 @@ class PosDrugProteinDataset(DrugProteinDataset):
 
         drug_pos = prot_idx = idx
         smiles_neg = np.random.choice(self.all_drugs)
-
         smiles_pos = self.all_drugs[drug_pos]
         prot = self.all_prots[prot_idx]
-
         pos_nodes, pos_adj = self._preprocess_molecule(smiles_pos)
         neg_nodes, neg_adj = self._preprocess_molecule(smiles_neg)
 

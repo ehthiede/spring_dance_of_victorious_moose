@@ -15,7 +15,7 @@ def run_model_on_mixed_batch(model, batch, device='cuda'):
     neg_nodes = batch['neg_node_features'].to(device=device)
     neg_adj = batch['neg_adj_mat'].to(device=device)
     sequences = batch['protein']
-
+    return pos_adj, pos_nodes, neg_adj, neg_nodes, sequences
 
 def run_bpr_on_batch(model, batch, device='cuda'):
     res = run_model_on_mixed_batch(model, batch, device='cuda')

@@ -108,7 +108,5 @@ class RankingLayer(nn.Module):
         losses = 0
         pos_out = self.output(pos)
         neg_out = self.output(neg)
-        diff = pos - neg_out
-        score = F.logsigmoid(diff)
-        losses = sum(sum(score))
-        return -1 * losses
+        diff = pos_out - neg_out
+        return diff

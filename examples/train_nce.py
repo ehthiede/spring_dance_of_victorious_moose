@@ -126,7 +126,7 @@ def main():
                 targets = get_targets(batch, device)
                 loss = loss_fxn(output, targets)
                 total_valid_loss += loss.item()
-        auc = roc_auc(model, valid_dataloader, 'nce', i, writer)
+        auc = roc_auc(model, valid_dataloader, 'nce', n, writer)
 
         avg_train_loss = total_train_loss / len(train_dataset)
         avg_valid_loss = total_valid_loss / len(valid_dataset)
